@@ -11,8 +11,27 @@
     h1 { color: #007bff; }
     ul { list-style: none; padding: 0; }
     li { background: #e9ecef; padding: 6px 10px; margin: 4px 0; border-radius: 6px; }
-    button { margin-top: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; }
-    button:hover { background: #0056b3; }
+    input[type="email"] {
+      padding: 10px; width: 90%; margin-top: 15px; border-radius: 6px; border: 1px solid #ccc;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #statusMessage {
+      color: red;
+      font-size: 14px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -22,7 +41,10 @@
     <p><strong>Current User:</strong> <span id="currentUser">Loading...</span></p>
     <p><strong>Queue Remaining:</strong></p>
     <ul id="queueList"></ul>
-    <button onclick="nextUser()">Next</button>
+
+    <input type="email" id="userEmail" placeholder="Enter your email to verify">
+    <button id="nextBtn" onclick="nextUser()" disabled>Next</button>
+    <p id="statusMessage"></p>
   </div>
 
   <script>
@@ -55,13 +77,18 @@
     }
 
     function nextUser() {
+      const inputEmail = document.getElementById("userEmail").value.trim().toLowerCase();
       queueRef.once("value", snapshot => {
         const currentQueue = snapshot.val() || [];
-        currentQueue.shift();
-        if (currentQueue.length === 0) {
-          resetQueue();
+        if (inputEmail === currentQueue[0].toLowerCase()) {
+          currentQueue.shift();
+          if (currentQueue.length === 0) {
+            resetQueue();
+          } else {
+            queueRef.set(currentQueue);
+          }
         } else {
-          queueRef.set(currentQueue);
+          document.getElementById("statusMessage").innerText = "❌ You are not the assigned user.";
         }
       });
     }
@@ -77,6 +104,19 @@
         li.textContent = queue[i];
         list.appendChild(li);
       }
+
+      const input = document.getElementById("userEmail");
+      const button = document.getElementById("nextBtn");
+      const msg = document.getElementById("statusMessage");
+
+      if (!input || !button) return;
+
+      input.addEventListener("input", () => {
+        const email = input.value.trim().toLowerCase();
+        const allowed = email === currentUser.toLowerCase();
+        button.disabled = !allowed;
+        msg.innerText = allowed ? "" : "⚠️ You must be the current user to proceed.";
+      });
     }
 
     queueRef.on("value", snapshot => {
