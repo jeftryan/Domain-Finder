@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Shared File Upload Queue</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 30px; background: #f0f2f5; }
+    #queueCard { background: #fff; padding: 20px; margin: auto; max-width: 400px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-radius: 10px; }
+    h1 { color: #007bff; }
+    ul { list-style: none; padding: 0; }
+    li { background: #e9ecef; padding: 6px 10px; margin: 4px 0; border-radius: 6px; }
+    button { margin-top: 20px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+
+  <h1>Shared File Upload Queue</h1>
+  <div id="queueCard">
+    <p><strong>Current User:</strong> <span id="currentUser">Loading...</span></p>
+    <p><strong>Queue Remaining:</strong></p>
+    <ul id="queueList"></ul>
+    <button onclick="nextUser()">Next</button>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCq1e4aeLt38Lk1lJ6UQ0mQAQv4hWL0s5Y",
+      authDomain: "domain-finder-ace9b.firebaseapp.com",
+      databaseURL: "https://domain-finder-ace9b-default-rtdb.firebaseio.com",
+      projectId: "domain-finder-ace9b",
+      storageBucket: "domain-finder-ace9b.appspot.com",
+      messagingSenderId: "212974898916",
+      appId: "1:212974898916:web:96782a8bd955b5834a6f1"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const queueRef = db.ref("uploadQueue");
+
+    const originalQueue = [
+      "nourul.s@techguys.work", "khym.c@techguys.work", "eduard.ca@techguys.work",
+      "joshua.s@techguys.work", "nina.f@techguys.work", "jean.b@techguys.work",
+      "gemelyn.g@techguys.work", "christine.b@techguys.work", "mloren.l@techguys.work",
+      "rachelleann.e@techguys.work", "vincent.f@techguys.work", "jaspher.r@techguys.work",
+      "mark.h@techguys.work", "vincent.r@techguys.work", "arjunn.m@techguys.work",
+      "Nicolas.d@techguys.work", "johnryan.j@techguys.work", "edjasper.r@techguys.work",
+      "mona.q@techguys.work", "marlo.a@techguys.work", "exudo.d@techguys.work"
+    ];
+
+    function resetQueue() {
+      queueRef.set(originalQueue);
+    }
+
+    function nextUser() {
+      queueRef.once("value", snapshot => {
+        const currentQueue = snapshot.val() || [];
+        currentQueue.shift();
+        if (currentQueue.length === 0) {
+          resetQueue();
+        } else {
+          queueRef.set(currentQueue);
+        }
+      });
+    }
+
+    function renderQueue(queue) {
+      const currentUser = queue.length > 0 ? queue[0] : "None";
+      document.getElementById("currentUser").innerText = currentUser;
+
+      const list = document.getElementById("queueList");
+      list.innerHTML = "";
+      for (let i = 1; i < queue.length; i++) {
+        const li = document.createElement("li");
+        li.textContent = queue[i];
+        list.appendChild(li);
+      }
+    }
+
+    queueRef.on("value", snapshot => {
+      const data = snapshot.val();
+      if (data === null) {
+        resetQueue();
+      } else {
+        renderQueue(data);
+      }
+    });
+
+    queueRef.once("value", snapshot => {
+      if (!snapshot.exists()) {
+        resetQueue();
+      }
+    });
+  </script>
+</body>
+</html>
