@@ -8,10 +8,10 @@
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 30px; background: #f0f2f5; }
     #queueCard { background: #fff; padding: 20px; margin: auto; max-width: 400px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-radius: 10px; }
-    h1 { color: #007bff; }
+    h1, h2 { color: #007bff; }
     ul { list-style: none; padding: 0; }
     li { background: #e9ecef; padding: 6px 10px; margin: 4px 0; border-radius: 6px; }
-    input[type="email"] {
+    input[type="email"], input[type="number"] {
       padding: 10px; width: 90%; margin-top: 15px; border-radius: 6px; border: 1px solid #ccc;
     }
     button {
@@ -27,11 +27,12 @@
       background: #ccc;
       cursor: not-allowed;
     }
-    #statusMessage {
-      color: red;
+    #statusMessage, #uploadStatus {
       font-size: 14px;
       margin-top: 10px;
     }
+    #statusMessage { color: red; }
+    #uploadStatus { color: green; }
   </style>
 </head>
 <body>
@@ -45,6 +46,18 @@
     <input type="email" id="userEmail" placeholder="Enter your email to verify">
     <button id="nextBtn" onclick="nextUser()" disabled>Next</button>
     <p id="statusMessage"></p>
+  </div>
+
+  <hr style="margin: 30px 0;">
+  <h2>Upload Tracker</h2>
+  <p><strong>Goal:</strong> 10,000 total uploads</p>
+  <p>Total uploaded so far: <span id="totalUploaded">0</span></p>
+  <p>Remaining to goal: <span id="remainingUploads">10000</span></p>
+
+  <div id="uploadSection">
+    <input type="number" id="userUploadCount" placeholder="How many did you upload?">
+    <button onclick="submitUpload()">Submit Upload</button>
+    <p id="uploadStatus"></p>
   </div>
 
   <script>
@@ -61,6 +74,8 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     const queueRef = db.ref("uploadQueue");
+    const uploadRef = db.ref("uploads");
+    const uploadGoal = 10000;
 
     const originalQueue = [
       "nourul.s@techguys.work", "khym.c@techguys.work", "eduard.ca@techguys.work",
@@ -133,6 +148,34 @@
         resetQueue();
       }
     });
+
+    function submitUpload() {
+      const email = document.getElementById("userEmail").value.trim().toLowerCase();
+      const count = parseInt(document.getElementById("userUploadCount").value);
+
+      if (!email || isNaN(count) || count < 0) {
+        document.getElementById("uploadStatus").innerText = "⚠️ Please enter a valid upload number.";
+        return;
+      }
+
+      uploadRef.child(email).set(count).then(() => {
+        document.getElementById("uploadStatus").innerText = "✅ Upload count submitted!";
+        updateUploadStats();
+      });
+    }
+
+    function updateUploadStats() {
+      uploadRef.once("value", snapshot => {
+        const uploads = snapshot.val() || {};
+        const total = Object.values(uploads).reduce((sum, val) => sum + val, 0);
+        const remaining = Math.max(uploadGoal - total, 0);
+
+        document.getElementById("totalUploaded").innerText = total.toLocaleString();
+        document.getElementById("remainingUploads").innerText = remaining.toLocaleString();
+      });
+    }
+
+    updateUploadStats();
   </script>
 </body>
 </html>
