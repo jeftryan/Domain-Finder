@@ -1,181 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Shared File Upload Queue</title>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 30px; background: #f0f2f5; }
-    #queueCard { background: #fff; padding: 20px; margin: auto; max-width: 400px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-radius: 10px; }
-    h1, h2 { color: #007bff; }
-    ul { list-style: none; padding: 0; }
-    li { background: #e9ecef; padding: 6px 10px; margin: 4px 0; border-radius: 6px; }
-    input[type="email"], input[type="number"] {
-      padding: 10px; width: 90%; margin-top: 15px; border-radius: 6px; border: 1px solid #ccc;
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f4f8;
+      text-align: center;
+      padding: 20px;
+    }
+    .queue-container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      display: inline-block;
+      margin-top: 20px;
+    }
+    .queue-container h3 {
+      margin: 10px 0;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px 0;
+      width: 80%;
+      max-width: 300px;
+      font-size: 16px;
     }
     button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background: #007bff;
+      background-color: #007BFF;
       color: white;
       border: none;
-      border-radius: 6px;
       cursor: pointer;
+      border-radius: 5px;
     }
-    button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
+    button:hover {
+      background-color: #0056b3;
     }
-    #statusMessage, #uploadStatus {
-      font-size: 14px;
-      margin-top: 10px;
+    .queue-list {
+      margin: 20px 0;
+      max-height: 200px;
+      overflow-y: auto;
+      text-align: left;
     }
-    #statusMessage { color: red; }
-    #uploadStatus { color: green; }
+    .queue-item {
+      padding: 5px 10px;
+      background-color: #e6e6e6;
+      margin: 4px auto;
+      width: fit-content;
+      border-radius: 5px;
+    }
+    .current-user {
+      font-weight: bold;
+      color: #007BFF;
+    }
   </style>
 </head>
 <body>
-
   <h1>Shared File Upload Queue</h1>
-  <div id="queueCard">
-    <p><strong>Current User:</strong> <span id="currentUser">Loading...</span></p>
-    <p><strong>Queue Remaining:</strong></p>
-    <ul id="queueList"></ul>
 
-    <input type="email" id="userEmail" placeholder="Enter your email to verify">
-    <button id="nextBtn" onclick="nextUser()" disabled>Next</button>
-    <p id="statusMessage"></p>
-  </div>
+  <div class="queue-container">
+    <h3>Current User: <span class="current-user" id="currentUser">eduard.ca@techguys.work</span></h3>
 
-  <hr style="margin: 30px 0;">
-  <h2>Upload Tracker</h2>
-  <p><strong>Goal:</strong> 10,000 total uploads</p>
-  <p>Total uploaded so far: <span id="totalUploaded">0</span></p>
-  <p>Remaining to goal: <span id="remainingUploads">10000</span></p>
+    <div class="queue-list" id="queueList"></div>
 
-  <div id="uploadSection">
-    <input type="number" id="userUploadCount" placeholder="How many did you upload?">
-    <button onclick="submitUpload()">Submit Upload</button>
-    <p id="uploadStatus"></p>
+    <h3>Total Target Upload: <span id="target">10000</span></h3>
+    <h3>Currently Uploaded: <span id="uploaded">0</span></h3>
+    <h3>Remaining Upload: <span id="remaining">10000</span></h3>
+
+    <div id="user-section">
+      <input type="email" id="email" placeholder="Enter your email to verify"><br>
+      <input type="number" id="uploadCount" placeholder="Enter number of companies uploaded" min="0"><br>
+      <button onclick="submitUpload()">Submit Upload</button>
+      <button onclick="nextUser()">Next</button>
+    </div>
   </div>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCq1e4aeLt38Lk1lJ6UQ0mQAQv4hWL0s5Y",
-      authDomain: "domain-finder-ace9b.firebaseapp.com",
-      databaseURL: "https://domain-finder-ace9b-default-rtdb.firebaseio.com",
-      projectId: "domain-finder-ace9b",
-      storageBucket: "domain-finder-ace9b.appspot.com",
-      messagingSenderId: "212974898916",
-      appId: "1:212974898916:web:96782a8bd955b5834a6f1"
-    };
+    const target = 10000;
+    let uploaded = 0;
+    let currentUserIndex = 0;
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const queueRef = db.ref("uploadQueue");
-    const uploadRef = db.ref("uploads");
-    const uploadGoal = 10000;
-
-    const originalQueue = [
-      "nourul.s@techguys.work", "khym.c@techguys.work", "eduard.ca@techguys.work",
-      "joshua.s@techguys.work", "nina.f@techguys.work", "jean.b@techguys.work",
-      "gemelyn.g@techguys.work", "christine.b@techguys.work", "mloren.l@techguys.work",
-      "rachelleann.e@techguys.work", "vincent.f@techguys.work", "jaspher.r@techguys.work",
-      "mark.h@techguys.work", "vincent.r@techguys.work", "arjunn.m@techguys.work",
-      "Nicolas.d@techguys.work", "johnryan.j@techguys.work", "edjasper.r@techguys.work",
-      "mona.q@techguys.work", "marlo.a@techguys.work", "exudo.d@techguys.work"
+    const queue = [
+      "eduard.ca@techguys.work", "joshua.s@techguys.work", "nina.l@techguys.work", "jean.b@techguys.work",
+      "gemelyn.g@techguys.work", "christine.b@techguys.work", "mloren.l@techguys.work", "racheleann.e@techguys.work",
+      "vincent.f@techguys.work", "jaspher.r@techguys.work", "mark.h@techguys.work", "vincent.r@techguys.work",
+      "arjunn.m@techguys.work", "nicolas.d@techguys.work", "johnryan.j@techguys.work", "edjasper.r@techguys.work",
+      "mona.q@techguys.work", "marlo.a@techguys.work", "exudo.q@techguys.work"
     ];
 
-    function resetQueue() {
-      queueRef.set(originalQueue);
+    function updateDisplay() {
+      document.getElementById("uploaded").textContent = uploaded;
+      document.getElementById("remaining").textContent = target - uploaded;
+      document.getElementById("currentUser").textContent = queue[currentUserIndex];
+
+      const queueList = document.getElementById("queueList");
+      queueList.innerHTML = "";
+      for (let i = currentUserIndex + 1; i < queue.length; i++) {
+        const item = document.createElement("div");
+        item.className = "queue-item";
+        item.textContent = queue[i];
+        queueList.appendChild(item);
+      }
+    }
+
+    function submitUpload() {
+      const emailInput = document.getElementById("email").value.trim().toLowerCase();
+      const uploadInput = parseInt(document.getElementById("uploadCount").value);
+
+      if (emailInput !== queue[currentUserIndex]) {
+        alert("Only the current user can submit uploads.");
+        return;
+      }
+      if (isNaN(uploadInput) || uploadInput <= 0) {
+        alert("Please enter a valid number of companies uploaded.");
+        return;
+      }
+      uploaded += uploadInput;
+      updateDisplay();
+      document.getElementById("uploadCount").value = "";
     }
 
     function nextUser() {
-      const inputEmail = document.getElementById("userEmail").value.trim().toLowerCase();
-      queueRef.once("value", snapshot => {
-        const currentQueue = snapshot.val() || [];
-        if (inputEmail === currentQueue[0].toLowerCase()) {
-          currentQueue.shift();
-          if (currentQueue.length === 0) {
-            resetQueue();
-          } else {
-            queueRef.set(currentQueue);
-          }
-        } else {
-          document.getElementById("statusMessage").innerText = "❌ You are not the assigned user.";
-        }
-      });
-    }
-
-    function renderQueue(queue) {
-      const currentUser = queue.length > 0 ? queue[0] : "None";
-      document.getElementById("currentUser").innerText = currentUser;
-
-      const list = document.getElementById("queueList");
-      list.innerHTML = "";
-      for (let i = 1; i < queue.length; i++) {
-        const li = document.createElement("li");
-        li.textContent = queue[i];
-        list.appendChild(li);
-      }
-
-      const input = document.getElementById("userEmail");
-      const button = document.getElementById("nextBtn");
-      const msg = document.getElementById("statusMessage");
-
-      if (!input || !button) return;
-
-      input.addEventListener("input", () => {
-        const email = input.value.trim().toLowerCase();
-        const allowed = email === currentUser.toLowerCase();
-        button.disabled = !allowed;
-        msg.innerText = allowed ? "" : "⚠️ You must be the current user to proceed.";
-      });
-    }
-
-    queueRef.on("value", snapshot => {
-      const data = snapshot.val();
-      if (data === null) {
-        resetQueue();
-      } else {
-        renderQueue(data);
-      }
-    });
-
-    queueRef.once("value", snapshot => {
-      if (!snapshot.exists()) {
-        resetQueue();
-      }
-    });
-
-    function submitUpload() {
-      const email = document.getElementById("userEmail").value.trim().toLowerCase();
-      const count = parseInt(document.getElementById("userUploadCount").value);
-
-      if (!email || isNaN(count) || count < 0) {
-        document.getElementById("uploadStatus").innerText = "⚠️ Please enter a valid upload number.";
+      const emailInput = document.getElementById("email").value.trim().toLowerCase();
+      if (emailInput !== queue[currentUserIndex]) {
+        alert("Only the current user can click Next.");
         return;
       }
-
-      uploadRef.child(email).set(count).then(() => {
-        document.getElementById("uploadStatus").innerText = "✅ Upload count submitted!";
-        updateUploadStats();
-      });
+      if (currentUserIndex < queue.length - 1) {
+        currentUserIndex++;
+        updateDisplay();
+        document.getElementById("email").value = "";
+        alert("Moved to the next user in the queue.");
+      } else {
+        alert("No more users in the queue.");
+      }
     }
 
-    function updateUploadStats() {
-      uploadRef.once("value", snapshot => {
-        const uploads = snapshot.val() || {};
-        const total = Object.values(uploads).reduce((sum, val) => sum + val, 0);
-        const remaining = Math.max(uploadGoal - total, 0);
-
-        document.getElementById("totalUploaded").innerText = total.toLocaleString();
-        document.getElementById("remainingUploads").innerText = remaining.toLocaleString();
-      });
-    }
-
-    updateUploadStats();
+    updateDisplay();
   </script>
 </body>
 </html>
